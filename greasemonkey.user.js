@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Shin WaniKani Leech Trainer
-// @version      2.6.2
+// @version      2.7.0
 // @description  Study and quiz yourself on your leeches!
 // @require      https://unpkg.com/wanakana@4.0.2/umd/wanakana.min.js
 // @author       rosshendry, forked from hitechbunny
@@ -12,6 +12,8 @@
 
 (function() {
     'use strict';
+
+    const baseUrl = 'https://wk-stats.herokuapp.com:8080/'
 
     // Hook into App Store
     try { $('.app-store-menu-item').remove(); $('<li class="app-store-menu-item"><a href="https://community.wanikani.com/t/there-are-so-many-user-scripts-now-that-discovering-them-is-hard/20709">App Store</a></li>').insertBefore($('.navbar .dropdown-menu .nav-header:contains("Account")')); window.appStoreRegistry = window.appStoreRegistry || {}; window.appStoreRegistry[GM_info.script.uuid] = GM_info; localStorage.appStoreRegistry = JSON.stringify(appStoreRegistry); } catch (e) {}
@@ -187,7 +189,28 @@
 
     function clear() {
         $('.navigation-shortcut--leeches').remove();
-        $('<li class="navigation-shortcut navigation-shortcut--leeches"><a href=""><span>&nbsp;</span>Leeches</a></li>').insertAfter('.navigation-shortcut--reviews');
+        var leechButton = '<li class="sitemap__section">'
+        leechButton += '<h2 class="sitemap__section-header sitemap__section-header--leeches" data-navigation-section-toggle="" data-expanded="false" role="button">'
+             + '<span lang="ja">蛭達</span>'
+             + '<span lang="en">Leeches</span>'
+             + '</h2>'
+
+        var list = '<ul class="sitemap__pages sitemap__pages--leeches">'
+          + '<li class="sitemap__page sitemap__page--subject">'
+          + '<a>Squash some leeches!</a>'
+          + '</li>'
+          + '</ul>'
+
+        leechButton += '<div class="sitemap__expandable-chunk sitemap__expandable-chunk--leeches" data-navigation-section-content="" data-expanded="false" aria-expanded="false">'
+            + list
+            + '</div>'
+
+        leechButton += '</li>'
+
+        console.info('Inserting...')
+        console.debug($('.navigation > ul > li.sitemap__section').last())
+        $(leechButton).insertBefore($('.navigation > ul > li.sitemap__section').last())
+        //$('<li class="navigation-shortcut navigation-shortcut--leeches"><a href=""><span>&nbsp;</span>Leeches</a></li>').insertAfter('.navigation-shortcut--reviews');
     }
 
     function query() {
@@ -196,7 +219,7 @@
             render(JSON.parse(localStorage.leech_train_cache));
         }
         get_api_key().then(function() {
-            ajax_retry('https://wk-stats.herokuapp.com/leeches/lesson?api_key='+api_key, {timeout: 0}).then(function(json) {
+            ajax_retry(baseUrl + '/leeches/lesson?api_key='+api_key, {timeout: 0}).then(function(json) {
                 clear();
                 render(json);
             });
@@ -213,7 +236,7 @@
             return;
         }
         quiz = json.leech_lesson_items;
-        $('.navigation-shortcut--leeches').click(startQuiz);
+        $('.navigation .sitemap__section-header--leeches').click(startQuiz);
     }
 
     function startQuiz(e) {
@@ -351,7 +374,7 @@
                 }
             });
 
-            ajax_retry('https://wk-stats.herokuapp.com/leeches/trained?api_key='+api_key, {data: JSON.stringify(trainedLeeches), method: 'POST', timeout: 0}).then(function(json) {
+            ajax_retry(baseUrl + '/leeches/trained?api_key='+api_key, {data: JSON.stringify(trainedLeeches), method: 'POST', timeout: 0}).then(function(json) {
                 delete window.localStorage['leeches-trained'];
                 setTimeout(function() {
                     closeQuiz();
