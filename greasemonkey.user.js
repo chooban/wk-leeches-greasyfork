@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Shin WaniKani Leech Trainer
-// @version      2.7.1
+// @version      2.7.2
 // @description  Study and quiz yourself on your leeches!
 // @require      https://unpkg.com/wanakana@4.0.2/umd/wanakana.min.js
 // @author       rosshendry, forked from hitechbunny
@@ -188,8 +188,8 @@
     var quizInProgress = false;
 
     function clear() {
-        $('.navigation-shortcut--leeches').remove();
-        var leechButton = '<li class="sitemap__section">'
+        $('.sitemap__section__leeches').remove();
+        var leechButton = '<li class="sitemap__section sitemap__section__leeches">'
         leechButton += '<h2 class="sitemap__section-header sitemap__section-header--leeches" data-navigation-section-toggle="" data-expanded="false" role="button">'
              + '<span lang="ja">蛭達</span>'
              + '<span lang="en">Leeches</span>'
@@ -228,10 +228,10 @@
 
     function render(json) {
         localStorage.leech_train_cache = JSON.stringify(json);
-        $('.navigation-shortcut--leeches a span').html(json.leeches_available);
-        if (!json.leeches_available) {
-            $('.navigation-shortcut--leeches a span').css("background-color", "#aaa");
-        }
+        //$('.navigation-shortcut--leeches a span').html(json.leeches_available);
+        //if (!json.leeches_available) {
+        //    $('.navigation-shortcut--leeches a span').css("background-color", "#aaa");
+        //}
         if (quizInProgress) {
             return;
         }
