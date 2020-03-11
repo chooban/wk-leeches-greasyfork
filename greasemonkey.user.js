@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Shin WaniKani Leech Trainer
-// @version      2.8.0
+// @version      2.8.1
 // @description  Study and quiz yourself on your leeches!
 // @require      https://unpkg.com/wanakana@4.0.2/umd/wanakana.min.js
 // @author       rosshendry, forked from hitechbunny
@@ -408,8 +408,8 @@
                     trainedLeeches.push({key: key, worst_incorrect: extras[key]});
                 }
             });
-
-            ajax_retry(baseUrl + '/leeches/trained?api_key='+api_key, {data: JSON.stringify(trainedLeeches), method: 'POST', timeout: 0}).then(function(json) {
+            var apiKey = GM_getValue(KEY_API_KEY)
+            ajax_retry(baseUrl + '/leeches/trained?api_key='+apiKey, {data: JSON.stringify(trainedLeeches), method: 'POST', timeout: 0}).then(function(json) {
                 GM_deleteValue(KEY_LEECHES_TRAINED)
                 setTimeout(function() {
                     closeQuiz();
