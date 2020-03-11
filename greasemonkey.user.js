@@ -1,12 +1,15 @@
 // ==UserScript==
 // @name         Shin WaniKani Leech Trainer
-// @version      2.7.2
+// @version      2.8.0
 // @description  Study and quiz yourself on your leeches!
 // @require      https://unpkg.com/wanakana@4.0.2/umd/wanakana.min.js
 // @author       rosshendry, forked from hitechbunny
 // @include      /^https://(www|preview).wanikani.com/(dashboard)?$/
 // @run-at       document-end
-// @grant        none
+// @grant        GM_getValue
+// @grant        GM_setValue
+// @grant        GM_deleteValue
+// @grant        GM_registerMenuCommand
 // @namespace https://greasyfork.org/users/149329
 // ==/UserScript==
 
@@ -179,7 +182,12 @@
 
     $('head').append('<style type="text/css">'+css+'</style>');
 
-    var api_key;
+    var KEY_API_KEY = 'wkApiKeyV2'
+    var KEY_LEECH_CACHE = 'wkLeechCache'
+
+    // I don't think this is used by anything. TBD.
+    var KEY_LEECHES_TRAINED = 'wkLeechesTrained'
+
     var quiz;
     var dialog;
     var correct = [];
@@ -187,39 +195,68 @@
     var wanakana_isbound;
     var quizInProgress = false;
 
+    GM_registerMenuCommand("WaniKani Leech Trainer: Set API key", promptApiKey);
+
+    function promptApiKey() {
+        var currentApiKey = GM_getValue(KEY_API_KEY) || ''
+        var possibleApiKey = null
+        while(true) {
+            possibleApiKey = window.prompt("Please enter your API key", currentApiKey)
+            if (typeof possibleApiKey === 'string' && possibleApiKey.length === 36) {
+                GM_setValue(KEY_API_KEY, possibleApiKey)
+                break
+            } else if (possibleApiKey === null) {
+                // User clicked cancel
+                break
+            } else {
+                alert("That does not look like a valid key, please try again")
+            }
+        }
+    }
+
     function clear() {
         $('.sitemap__section__leeches').remove();
-        var leechButton = '<li class="sitemap__section sitemap__section__leeches">'
-        leechButton += '<h2 class="sitemap__section-header sitemap__section-header--leeches" data-navigation-section-toggle="" data-expanded="false" role="button">'
-             + '<span lang="ja">蛭達</span>'
-             + '<span lang="en">Leeches</span>'
-             + '</h2>'
+        var leechButton = `
+        <li class="sitemap__section sitemap__section__leeches">
+          <h2 class="sitemap__section-header sitemap__section-header--leeches" data-navigation-section-toggle="" data-expanded="false" role="button">
+            <span lang="ja">蛭達</span>
+            <span lang="en">Leeches</span>
+          </h2>
+          <div class="sitemap__expandable-chunk sitemap__expandable-chunk--leeches" data-navigation-section-content="" data-expanded="false" aria-expanded="false">
+            <ul class="sitemap__pages sitemap__pages--leeches">
+              <li class="sitemap__page sitemap__page--leech">
+                You have <span class="leech-count">X</span> leeches
+              </li>
+              <li class="sitemap__page sitemap__page--leech">
+                <button style="width: 100%;" class="leeches-start-quiz">Squash some leeches!</button>
+              </li>
+            </ul>
+          </div>
+        </li>`
 
-        var list = '<ul class="sitemap__pages sitemap__pages--leeches">'
-          + '<li class="sitemap__page sitemap__page--subject">'
-          + '<a>Squash some leeches!</a>'
-          + '</li>'
-          + '</ul>'
+        var btnElement = $(leechButton)
+        btnElement.click(function(event) {
+            event.stopImmediatePropagation()
+            var header = $(this).find('h2.sitemap__section-header')
+            var sitemap = $(this).find('div.sitemap__expandable-chunk')
+            var toggleTo = header.attr('data-expanded') === 'true' ? 'false' : 'true'
 
-        leechButton += '<div class="sitemap__expandable-chunk sitemap__expandable-chunk--leeches" data-navigation-section-content="" data-expanded="false" aria-expanded="false">'
-            + list
-            + '</div>'
-
-        leechButton += '</li>'
-
-        console.info('Inserting...')
-        console.debug($('.navigation > ul > li.sitemap__section').last())
-        $(leechButton).insertBefore($('.navigation > ul > li.sitemap__section').last())
-        //$('<li class="navigation-shortcut navigation-shortcut--leeches"><a href=""><span>&nbsp;</span>Leeches</a></li>').insertAfter('.navigation-shortcut--reviews');
+            header.attr('data-expanded', toggleTo)
+            sitemap.attr('data-expanded', toggleTo)
+        })
+        btnElement.insertBefore($('.navigation > ul > li.sitemap__section').last())
     }
 
     function query() {
         clear();
-        if (localStorage.leech_train_cache) {
-            render(JSON.parse(localStorage.leech_train_cache));
+        var leechCache = GM_getValue(KEY_LEECH_CACHE) || ''
+
+        if (leechCache) {
+            render(JSON.parse(leechCache));
         }
         get_api_key().then(function() {
-            ajax_retry(baseUrl + '/leeches/lesson?api_key='+api_key, {timeout: 0}).then(function(json) {
+            var apiKey = GM_getValue(KEY_API_KEY)
+            ajax_retry(baseUrl + '/leeches/lesson?api_key='+apiKey, {timeout: 0}).then(function(json) {
                 clear();
                 render(json);
             });
@@ -227,16 +264,14 @@
     }
 
     function render(json) {
-        localStorage.leech_train_cache = JSON.stringify(json);
-        //$('.navigation-shortcut--leeches a span').html(json.leeches_available);
-        //if (!json.leeches_available) {
-        //    $('.navigation-shortcut--leeches a span').css("background-color", "#aaa");
-        //}
+        GM_setValue(KEY_LEECH_CACHE, JSON.stringify(json));
         if (quizInProgress) {
             return;
         }
         quiz = json.leech_lesson_items;
-        $('.navigation .sitemap__section-header--leeches').click(startQuiz);
+        console.info(json)
+        $('.navigation span.leech-count').html(json.leeches_available)
+        $('.navigation .sitemap__section__leeches button').click(startQuiz);
     }
 
     function startQuiz(e) {
@@ -288,8 +323,8 @@
 
     function onKeyPress(e) {
         var code = e.originalEvent
-            ? (e.originalEvent.charCode ? e.originalEvent.charCode : e.originalEvent.keyCode ? e.originalEvent.keyCode : 0)
-            : (e.charCode ? e.charCode : e.keyCode ? e.keyCode : 0);
+        ? (e.originalEvent.charCode ? e.originalEvent.charCode : e.originalEvent.keyCode ? e.originalEvent.keyCode : 0)
+        : (e.charCode ? e.charCode : e.keyCode ? e.keyCode : 0);
 
         if (dialog.find('.help').is(':visible')) {
             dialog.find('.help').hide();
@@ -367,7 +402,7 @@
             var msg = (trainedLeeches.length === 0 ? "Sorry. No leeches trained." : trainedLeeches.length+" leech"+(trainedLeeches > 1 ? "es" : "")+" trained!");
             dialog.find('.help').html(msg).attr('lang','en').show();
 
-            var extras = JSON.parse(window.localStorage['leeches-trained'] || '{}');
+            var extras = JSON.parse(GM_getValue(KEY_LEECHES_TRAINED) || '{}');
             Object.keys(extras).forEach(function(key) {
                 if (!trainedLeeches.find(function(l) { return l.key == key; }) && !incorrect.find(function(l) { return l.key == key; })) {
                     trainedLeeches.push({key: key, worst_incorrect: extras[key]});
@@ -375,7 +410,7 @@
             });
 
             ajax_retry(baseUrl + '/leeches/trained?api_key='+api_key, {data: JSON.stringify(trainedLeeches), method: 'POST', timeout: 0}).then(function(json) {
-                delete window.localStorage['leeches-trained'];
+                GM_deleteValue(KEY_LEECHES_TRAINED)
                 setTimeout(function() {
                     closeQuiz();
                 }, 2500)
@@ -491,7 +526,7 @@
                 data: data,
                 cache: cache
             })
-            .done(function(data, status){
+                .done(function(data, status){
                 //console.log(status, data);
                 if (status === 'success') {
                     resolve(data);
@@ -500,7 +535,7 @@
                     reject();
                 }
             })
-            .fail(function(xhr, status, error){
+                .fail(function(xhr, status, error){
                 //console.log(status, error);
                 if ((status === 'error' || status === 'timeout') && --retries > 0) {
                     //console.log("fail", status, error);
@@ -515,8 +550,8 @@
 
     function get_api_key() {
         return new Promise(function(resolve, reject) {
-            api_key = localStorage.getItem('wkApiKeyV2');
-            if (typeof api_key === 'string' && api_key.length == 36) return resolve();
+            var apiKey = GM_getValue(KEY_API_KEY);
+            if (typeof apiKey === 'string' && apiKey.length == 36) return resolve();
 
             // status_div.html('Fetching API key...');
             ajax_retry('/settings/personal_access_tokens').then(function(page) {
@@ -529,12 +564,12 @@
                 page = $(page);
 
                 // Extract the API key.
-                api_key = page.find('table#personal-access-tokens-list tbody tr:last-of-type code')[0].innerText;
-                if (typeof api_key !== 'string' || api_key.length !== 36) {
+                var possibleApiKey = page.find('table#personal-access-tokens-list tbody tr:last-of-type code')[0].innerText;
+                if (typeof possibleApiKey !== 'string' || possibleApiKey.length !== 36) {
                     return reject(new Error('generate_apikey'));
                 }
 
-                localStorage.setItem('wkApiKeyV2', api_key);
+                GM_setValue(KEY_API_KEY, possibleApiKey);
                 resolve();
 
             },function(result) {
