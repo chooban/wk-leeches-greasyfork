@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Shin WaniKani Leech Trainer
-// @version      2.8.1
+// @version      2.8.2
 // @description  Study and quiz yourself on your leeches!
 // @require      https://unpkg.com/wanakana@4.0.2/umd/wanakana.min.js
 // @author       rosshendry, forked from hitechbunny
@@ -244,7 +244,7 @@
             header.attr('data-expanded', toggleTo)
             sitemap.attr('data-expanded', toggleTo)
         })
-        btnElement.insertBefore($('.navigation > ul > li.sitemap__section').last())
+        btnElement.insertAfter($('.navigation .sitemap__section-header--vocabulary').parent())
     }
 
     function query() {
