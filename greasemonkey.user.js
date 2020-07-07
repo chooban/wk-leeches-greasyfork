@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Shin WaniKani Leech Trainer
-// @version      2.8.2
+// @version      2.8.3
 // @description  Study and quiz yourself on your leeches!
 // @require      https://unpkg.com/wanakana@4.0.2/umd/wanakana.min.js
 // @author       rosshendry, forked from hitechbunny
@@ -234,6 +234,12 @@
           </div>
         </li>`
 
+        var parentElement = $('.navigation .sitemap__section-header--vocabulary').parent()
+        if (!parentElement.length) {
+            console.log('Could not find the vocabulary button to attach to')
+            return
+        }
+
         var btnElement = $(leechButton)
         btnElement.click(function(event) {
             event.stopImmediatePropagation()
@@ -244,7 +250,7 @@
             header.attr('data-expanded', toggleTo)
             sitemap.attr('data-expanded', toggleTo)
         })
-        btnElement.insertAfter($('.navigation .sitemap__section-header--vocabulary').parent())
+        btnElement.insertAfter(parentElement)
     }
 
     function query() {
