@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shin WaniKani Leech Trainer
 // @namespace    http://tampermonkey.net/
-// @version      3.0.0
+// @version      3.1.0
 // @description  Study and quiz yourself on your leeches!
 // @author       Ross Hendry (rhendry@gmail.com)
 // @match        https://www.wanikani.com/
@@ -320,7 +320,23 @@ class Quiz {
   GM_registerMenuCommand("WaniKani Leech Trainer: Set API key", promptApiKey);
   GM_registerMenuCommand("WaniKani Leech Trainer: Set Leech Score", promptLeechScore);
   GM_registerMenuCommand("WaniKani Leech Trainer: Set Quiz Size", promptQuizSize);
+  GM_registerMenuCommand("WaniKani Leech Trainer: Squash My Leeches", squashMyLeeches);
   GM_registerMenuCommand("WaniKani Leech Trainer: XXX! DELETE MY STATS", promptDelete);
+
+  function squashMyLeeches() {
+    var apiKey = GM_getValue(KEY_API_KEY) || ''
+    var confirmation = window.prompt("Do you really want to squash all your leeches? Enter 'yes' to confirm", "no")
+    if (confirmation === null || confirmation === "no") {
+      ;
+    } else if (typeof confirmation === 'string' && confirmation === 'yes') {
+      ajax_retry(config.BASE_URL + '/leeches/squash', {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`
+        },
+        method: 'POST'
+      }).then(query)
+    }
+  }
 
   function promptDelete() {
     var apiKey = GM_getValue(KEY_API_KEY) || ''
@@ -484,9 +500,13 @@ class Quiz {
     if (quizInProgress) {
       return;
     }
-    quiz = new Quiz(json.lessons);
     $('.navigation span.leech-count').html(json.stats.leech_count)
-    $('.navigation .sitemap__section__leeches button').click(startQuiz);
+    if (json.lessons.length > 0) {
+      quiz = new Quiz(json.lessons);
+      $('.navigation .sitemap__section__leeches button').click(startQuiz);
+    } else {
+      $('.navigation .sitemap__section__leeches button').remove()
+    }
   }
 
   function startQuiz(e) {
