@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shin WaniKani Leech Trainer
 // @namespace    http://tampermonkey.net/
-// @version      3.1.0
+// @version      3.2.0
 // @description  Study and quiz yourself on your leeches!
 // @author       Ross Hendry (rhendry@gmail.com)
 // @match        https://www.wanikani.com/
@@ -179,7 +179,7 @@ function shuffle(array) {
 // src/lib/quiz/Quiz.js
 class Quiz {
   constructor(leechItems) {
-    this.lessons = leechItems
+    this.lessons = leechItems.filter(l => l.name !== undefined && l.name.length > 0)
     this.questions = this.makeQuestions(this.lessons)
     this.correctAnswers = []
     this.incorrectAnswers = []
@@ -334,7 +334,7 @@ class Quiz {
           'Authorization': `Bearer ${apiKey}`
         },
         method: 'POST'
-      }).then(query)
+      }).then(refreshLessons)
     }
   }
 
@@ -356,7 +356,7 @@ class Quiz {
           },
           method: 'DELETE'
         }).then(() => {
-          query()
+          refreshLessons()
         })
       }
     })
@@ -435,13 +435,39 @@ class Quiz {
       data: JSON.stringify({
         [key]: score
       })
-    }).finally(query)
+    }).finally(refreshLessons)
       .catch(e => {
         console.error(e)
       })
   }
 
-  function clear() {
+  function loading() {
+    console.log("Inserting loading spinner")
+    $('.sitemap__section__leeches').remove();
+    var leechButton = `
+      <li class="sitemap__section sitemap__section__leeches">
+        <h2 class="sitemap__section-header sitemap__section-header--leeches" data-navigation-section-toggle="" data-expanded="false" role="button">
+          <div class="spinner">
+            <span lang="ja">蛭達</span>
+            <span lang="en">Leeches</span>
+          </div>
+        </h2>
+      </li>`
+
+    var parentElement = $('.navigation .sitemap__section-header--vocabulary').parent()
+    if (!parentElement.length) {
+      console.log('Could not find the vocabulary button to attach to')
+      return
+    }
+
+    var btnElement = $(leechButton)
+    btnElement.insertAfter(parentElement)
+  }
+
+  function renderButton(json) {
+    if (quizInProgress) {
+      return;
+    }
     $('.sitemap__section__leeches').remove();
     var leechButton = `
       <li class="sitemap__section sitemap__section__leeches">
@@ -452,7 +478,7 @@ class Quiz {
         <div class="sitemap__expandable-chunk sitemap__expandable-chunk--leeches" data-navigation-section-content="" data-expanded="false" aria-expanded="false">
           <ul class="sitemap__pages sitemap__pages--leeches">
             <li class="sitemap__page sitemap__page--leech">
-              You have <span class="leech-count">...</span> leeches
+              You have <span class="leech-count">${json.stats.leech_count}</span> leeches
             </li>
             <li class="sitemap__page sitemap__page--leech">
               <button style="width: 100%;" class="leeches-start-quiz">Squash some leeches!</button>
@@ -478,10 +504,17 @@ class Quiz {
       sitemap.attr('data-expanded', toggleTo)
     })
     btnElement.insertAfter(parentElement)
+
+    if (json.lessons.length > 0) {
+      quiz = new Quiz(json.lessons);
+      $('.navigation .sitemap__section__leeches button').click(startQuiz);
+    } else {
+      $('.navigation .sitemap__section__leeches button').remove()
+    }
   }
 
-  function query() {
-    clear();
+  function refreshLessons() {
+    loading();
     getAPIKey().then(function (apiKey) {
       ajax_retry(config.BASE_URL + '/leeches/lesson', {
         timeout: 0,
@@ -489,24 +522,8 @@ class Quiz {
           'Authorization': `Bearer ${apiKey}`
         }
       })
-        .then(function (json) {
-          clear();
-          render(json);
-        });
+        .then(renderButton);
     });
-  }
-
-  function render(json) {
-    if (quizInProgress) {
-      return;
-    }
-    $('.navigation span.leech-count').html(json.stats.leech_count)
-    if (json.lessons.length > 0) {
-      quiz = new Quiz(json.lessons);
-      $('.navigation .sitemap__section__leeches button').click(startQuiz);
-    } else {
-      $('.navigation .sitemap__section__leeches button').remove()
-    }
   }
 
   function startQuiz(e) {
@@ -533,7 +550,7 @@ class Quiz {
     $('.navbar, #search, .dashboard, footer').css('filter', 'none');
     $('#leech_quiz, #leech_quiz_abort').remove();
     quizInProgress = false;
-    query();
+    refreshLessons();
   }
 
   function onAnswerKeyPress(e) {
@@ -653,7 +670,7 @@ class Quiz {
     }
   }
 
-  query();
+  refreshLessons();
 
   //-------------------------------------------------------------------
   // Fetch a document from the server.
@@ -733,7 +750,9 @@ class Quiz {
 
   $style.innerHTML = `/* src/styles.css */
 #leech_quiz [lang="ja"] {
-  font-family: "Meiryo", "Yu Gothic", "Hiragino Kaku Gothic Pro", "TakaoPGothic", "Yu Gothic", "ヒラギノ角ゴ Pro W3", "メイリオ", "Osaka", "MS PGothic", "ＭＳ Ｐゴシック", sans-serif;
+  font-family: "Meiryo", "Yu Gothic", "Hiragino Kaku Gothic Pro", "TakaoPGothic",
+    "Yu Gothic", "ヒラギノ角ゴ Pro W3", "メイリオ", "Osaka", "MS PGothic",
+    "ＭＳ Ｐゴシック", sans-serif;
 }
 
 #leech_quiz {
@@ -781,11 +800,19 @@ class Quiz {
 }
 
 #leech_quiz .prev:hover {
-  background-image: linear-gradient(to left, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.2));
+  background-image: linear-gradient(
+    to left,
+    rgba(0, 0, 0, 0),
+    rgba(0, 0, 0, 0.2)
+  );
 }
 
 #leech_quiz .next:hover {
-  background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.2));
+  background-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0),
+    rgba(0, 0, 0, 0.2)
+  );
 }
 
 #leech_quiz .prev {
@@ -1064,7 +1091,7 @@ class Quiz {
   position: absolute;
   top: 0;
   left: 0;
-  width: 100%
+  width: 100%;
 }
 
 #leech_quiz {
@@ -1116,6 +1143,39 @@ class Quiz {
   bottom: 0;
   right: 0;
   z-index: 999;
+}
+
+@keyframes spinner {
+  0% {
+    transform: translate3d(-50%, -50%, 0) rotate(0deg);
+  }
+  100% {
+    transform: translate3d(-50%, -50%, 0) rotate(360deg);
+  }
+}
+
+.spinner {
+  height: 100vh;
+  opacity: 1;
+  position: relative;
+  transition: opacity linear 0.1s;
+}
+
+.spinner::before {
+  animation: 2s linear infinite spinner;
+  border: solid 3px #eee;
+  border-bottom-color: #ef6565;
+  border-radius: 50%;
+  content: "";
+  height: 20px;
+  left: 50%;
+  opacity: inherit;
+  position: absolute;
+  top: 47.5px;
+  transform: translate3d(-50%, -50%, 0);
+  transform-origin: center;
+  width: 20px;
+  will-change: transform;
 }
 `;
   document.body.appendChild($style);
