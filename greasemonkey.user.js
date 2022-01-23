@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shin WaniKani Leech Trainer
 // @namespace    http://tampermonkey.net/
-// @version      3.2.0
+// @version      3.2.1
 // @description  Study and quiz yourself on your leeches!
 // @author       Ross Hendry (rhendry@gmail.com)
 // @match        https://www.wanikani.com/
@@ -40,7 +40,7 @@ console.log('Script name is', name)
 const config = {
   BASE_URL: name.startsWith('Local')
   ? 'https://leeches.local/api'
-  : 'https://wk-leeches-dev.pun7u6s23ol8m.eu-west-2.cs.amazonlightsail.com',
+  : 'https://wk-leeches.herokuapp.com',
   KEY_API_KEY: 'wkApiKeyV2',
   KEY_LEECH_CACHE: 'wkLeechCache',
   KEY_LEECHES_TRAINED: 'wkLeechesTrained',
