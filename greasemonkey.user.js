@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shin WaniKani Leech Trainer
 // @namespace    http://tampermonkey.net/
-// @version      3.2.1
+// @version      3.2.2
 // @description  Study and quiz yourself on your leeches!
 // @author       Ross Hendry (rhendry@gmail.com)
 // @match        https://www.wanikani.com/
@@ -329,18 +329,22 @@ class Quiz {
     if (confirmation === null || confirmation === "no") {
       ;
     } else if (typeof confirmation === 'string' && confirmation === 'yes') {
-      ajax_retry(config.BASE_URL + '/leeches/squash', {
+      ajaxRetry(config.BASE_URL + '/leeches/squash', {
         headers: {
           'Authorization': `Bearer ${apiKey}`
         },
         method: 'POST'
       }).then(refreshLessons)
+      .catch(function(error) {
+        console.log(error)
+        console.log("Failed to squash leeches")
+      })
     }
   }
 
   function promptDelete() {
     var apiKey = GM_getValue(KEY_API_KEY) || ''
-    ajax_retry(config.BASE_URL + '/user', {
+    ajaxRetry(config.BASE_URL + '/user', {
       headers: {
         'Authorization': `Bearer ${apiKey}`
       },
@@ -350,7 +354,7 @@ class Quiz {
       if (confirmation === null || confirmation === "no") {
         ;
       } else if (typeof confirmation === 'string' && confirmation === 'yes') {
-        ajax_retry(config.BASE_URL + '/leeches', {
+        ajaxRetry(config.BASE_URL + '/leeches', {
           headers: {
             'Authorization': `Bearer ${apiKey}`
           },
@@ -381,7 +385,7 @@ class Quiz {
 
   function promptLeechScore() {
     var apiKey = GM_getValue(KEY_API_KEY) || ''
-    ajax_retry(config.BASE_URL + '/user', {
+    ajaxRetry(config.BASE_URL + '/user', {
       headers: {
         'Authorization': `Bearer ${apiKey}`
       },
@@ -404,7 +408,7 @@ class Quiz {
 
   function promptQuizSize() {
     var apiKey = GM_getValue(KEY_API_KEY) || ''
-    ajax_retry(config.BASE_URL + '/user', {
+    ajaxRetry(config.BASE_URL + '/user', {
       headers: {
         'Authorization': `Bearer ${apiKey}`
       },
@@ -427,7 +431,7 @@ class Quiz {
 
   function setProfileValue(key, score) {
     var apiKey = GM_getValue(KEY_API_KEY) || ''
-    ajax_retry(config.BASE_URL + '/user', {
+    ajaxRetry(config.BASE_URL + '/user', {
       headers: {
         'Authorization': `Bearer ${apiKey}`
       },
@@ -442,7 +446,6 @@ class Quiz {
   }
 
   function loading() {
-    console.log("Inserting loading spinner")
     $('.sitemap__section__leeches').remove();
     var leechButton = `
       <li class="sitemap__section sitemap__section__leeches">
@@ -461,6 +464,30 @@ class Quiz {
     }
 
     var btnElement = $(leechButton)
+    btnElement.insertAfter(parentElement)
+  }
+  
+  function renderError(error) {
+    $('.sitemap__section__leeches').remove();
+    var leechButton = `
+      <li class="sitemap__section sitemap__section__leeches">
+        <h2 class="sitemap__section-header sitemap__section-header--leeches" data-navigation-section-toggle="" data-expanded="false" role="button">
+          <span lang="ja">蛭達</span>
+          <span lang="en">Leeches - Error!</span>
+        </h2>
+      </li>`
+
+    var parentElement = $('.navigation .sitemap__section-header--vocabulary').parent()
+    if (!parentElement.length) {
+      console.log('Could not find the vocabulary button to attach to')
+      return
+    }
+
+    var btnElement = $(leechButton)
+    btnElement.click(function (event) {
+      event.stopImmediatePropagation()
+      window.alert(error)
+    })
     btnElement.insertAfter(parentElement)
   }
 
@@ -515,14 +542,22 @@ class Quiz {
 
   function refreshLessons() {
     loading();
-    getAPIKey().then(function (apiKey) {
-      ajax_retry(config.BASE_URL + '/leeches/lesson', {
-        timeout: 0,
-        headers: {
-          'Authorization': `Bearer ${apiKey}`
-        }
-      })
-        .then(renderButton);
+    getAPIKey()
+      .then(function (apiKey) {
+        ajaxRetry(config.BASE_URL + '/leeches/lesson', {
+          timeout: 0,
+          headers: {
+            'Authorization': `Bearer ${apiKey}`
+          }
+        })
+        .then(renderButton)
+        .catch(function(error) {
+          console.log("Failed to retrieve lessons")
+          console.log(error)
+          renderError(error)
+        })
+    }).catch(function(error) {
+      console.log("Failed to get API key");
     });
   }
 
@@ -614,7 +649,7 @@ class Quiz {
     $('#leech_quiz').find('.help').html(msg).attr('lang', 'en').show();
 
     getAPIKey().then(function (apiKey) {
-      ajax_retry(config.BASE_URL + '/leeches/trained', {
+      ajaxRetry(config.BASE_URL + '/leeches/trained', {
         data: JSON.stringify({ trained: trainedLeeches }),
         method: 'POST',
         timeout: 0,
@@ -622,6 +657,7 @@ class Quiz {
           'Authorization': `Bearer ${apiKey}`
         }
       }).catch(function (e) {
+        console.error("Failed to submit trained leeches")
         console.error(e)
       }).finally(function () {
         setTimeout(function () {
@@ -675,10 +711,10 @@ class Quiz {
   //-------------------------------------------------------------------
   // Fetch a document from the server.
   //-------------------------------------------------------------------
-  function ajax_retry(url, options) {
+  function ajaxRetry(url, options) {
     //console.log(url, retries, timeout);
     options = options || {};
-    var retries = options.retries || 3;
+    var retries = options.retries || 1;
     var timeout = options.timeout || 3000;
     var headers = options.headers || {};
     var method = options.method || 'GET';
@@ -698,15 +734,15 @@ class Quiz {
           if (status === 'success') {
             resolve(data);
           } else {
-            reject();
+            reject(data);
           }
         })
         .fail(function (xhr, status, error) {
           if ((status === 'error' || status === 'timeout') && --retries > 0) {
             action(resolve, reject);
-          } else {
-            reject();
-          }
+            return
+          } 
+          reject(xhr.responseText);
         });
     }
     return new Promise(action);
@@ -718,7 +754,7 @@ class Quiz {
       if (typeof apiKey === 'string' && apiKey.length == 36) return resolve(apiKey);
 
       // status_div.html('Fetching API key...');
-      ajax_retry('/settings/personal_access_tokens').then(function (page) {
+      ajaxRetry('/settings/personal_access_tokens').then(function (page) {
 
         // --[ SUCCESS ]----------------------
         // Make sure what we got is a web page.
