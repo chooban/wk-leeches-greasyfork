@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shin WaniKani Leech Trainer
 // @namespace    http://tampermonkey.net/
-// @version      3.2.2
+// @version      3.2.3
 // @description  Study and quiz yourself on your leeches!
 // @author       Ross Hendry (rhendry@gmail.com)
 // @match        https://www.wanikani.com/
@@ -714,7 +714,7 @@ class Quiz {
   function ajaxRetry(url, options) {
     //console.log(url, retries, timeout);
     options = options || {};
-    var retries = options.retries || 1;
+    var retries = options.retries || 3;
     var timeout = options.timeout || 3000;
     var headers = options.headers || {};
     var method = options.method || 'GET';
