@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shin WaniKani Leech Trainer
 // @namespace    http://tampermonkey.net/
-// @version      3.2.3
+// @version      3.3.0
 // @description  Study and quiz yourself on your leeches!
 // @author       Ross Hendry (rhendry@gmail.com)
 // @match        https://www.wanikani.com/
@@ -225,6 +225,12 @@ class Quiz {
   items() {
     return this.lessons.length
   }
+  
+  similars() {
+    return this.lessons.filter(function(lesson) {
+      return lesson.is_similar
+    })
+  }
 
   currentQuestion() {
     return this.questions[this.nthQuestion]
@@ -276,7 +282,6 @@ class Quiz {
     this.correctAnswers.forEach(function (leech) {
       if (!trained.find(function (l) { return l.key == leech.key; })
         && !self.incorrectAnswers.find(function (l) { return l.key == leech.key; })
-        && !leech.isSimilar
       ) {
         trained.push(leech);
       }
@@ -302,11 +307,6 @@ class Quiz {
       <div class="qwrap">
         <div class="question"></div>
         <div class="help"></div>
-        <div class="summary center">
-          <h3>Summary - <span class="percent">100%</span> Correct <button class="btn requiz" title="Re-quiz wrong items">Re-quiz</button></h3>
-          <ul class="errors"></ul>
-        </div>
-        <div class="round center"><span class="center">Round 1</span></div>
       </div>
       <div class="qtype"></div>
       <div class="answer"><input type="text" value=""></div>
@@ -642,15 +642,30 @@ class Quiz {
     $('#leech_quiz_abort').css('z-index', 1031);
 
     var trainedLeeches = quiz.trained();
-    var msg = trainedLeeches.length === 0
+    
+    var trained = trainedLeeches.reduce(function(acc, leech) {
+      if (leech.is_similar) {
+        acc.similars.push(leech)
+      } else {
+        acc.leeches.push(leech)
+      }
+      return acc
+    }, { leeches: [], similars: []})
+
+    var msg = trained.leeches.length === 0
       ? "Sorry. No leeches trained."
-      : trainedLeeches.length + " leech" + (trainedLeeches > 1 ? "es" : "") + " trained!";
+      : trained.leeches.length + " leech" + (trained.leeches.length > 1 ? "es" : "") + " trained!";
+    
+    if (quiz.similars().length > 0 && trained.leeches.length > 0) {
+      msg = msg.slice(0, msg.length - 1)
+      msg += ", and spotted " + trained.similars.length + " similar item" + ((trained.similars.length > 1 || trained.similars.length == 0) ? "s" : "") + "!"
+    }
 
     $('#leech_quiz').find('.help').html(msg).attr('lang', 'en').show();
 
     getAPIKey().then(function (apiKey) {
       ajaxRetry(config.BASE_URL + '/leeches/trained', {
-        data: JSON.stringify({ trained: trainedLeeches }),
+        data: JSON.stringify({ trained: trained.leeches }),
         method: 'POST',
         timeout: 0,
         headers: {
@@ -662,7 +677,7 @@ class Quiz {
       }).finally(function () {
         setTimeout(function () {
           closeQuiz();
-        }, 2500)
+        }, 2000)
       });
     })
   }
@@ -731,9 +746,10 @@ class Quiz {
         cache: cache
       })
         .done(function (data, status) {
-          if (status === 'success') {
+          if (status === 'success' || status === 'nocontent') {
             resolve(data);
           } else {
+            debugger
             reject(data);
           }
         })
@@ -742,6 +758,7 @@ class Quiz {
             action(resolve, reject);
             return
           } 
+          debugger
           reject(xhr.responseText);
         });
     }
