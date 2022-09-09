@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shin WaniKani Leech Trainer
 // @namespace    http://tampermonkey.net/
-// @version      3.4.0
+// @version      3.4.1
 // @description  Study and quiz yourself on your leeches!
 // @author       Ross Hendry (rhendry@gmail.com)
 // @match        https://www.wanikani.com/
@@ -296,7 +296,7 @@ class Quiz {
 { Quiz, CORRECT, INCORRECT, TRY_AGAIN }
 
 // src/index.js
-(function () {
+(function() {
   'use strict';
 
   const { KEY_API_KEY } = config
@@ -335,10 +335,10 @@ class Quiz {
         },
         method: 'POST'
       }).then(refreshLessons)
-      .catch(function(error) {
-        console.log(error)
-        console.log("Failed to squash leeches")
-      })
+        .catch(function(error) {
+          console.log(error)
+          console.log("Failed to squash leeches")
+        })
     }
   }
 
@@ -466,7 +466,7 @@ class Quiz {
     var btnElement = $(leechButton)
     btnElement.insertAfter(parentElement)
   }
-  
+
   function renderError(error) {
     $('.sitemap__section__leeches').remove();
     var leechButton = `
@@ -484,7 +484,7 @@ class Quiz {
     }
 
     var btnElement = $(leechButton)
-    btnElement.click(function (event) {
+    btnElement.click(function(event) {
       event.stopImmediatePropagation()
       window.alert(error)
     })
@@ -521,7 +521,7 @@ class Quiz {
     }
 
     var btnElement = $(leechButton)
-    btnElement.click(function (event) {
+    btnElement.click(function(event) {
       event.stopImmediatePropagation()
       var header = $(this).find('h2.sitemap__section-header')
       var sitemap = $(this).find('div.sitemap__expandable-chunk')
@@ -543,22 +543,22 @@ class Quiz {
   function refreshLessons() {
     loading();
     getAPIKey()
-      .then(function (apiKey) {
+      .then(function(apiKey) {
         ajaxRetry(config.BASE_URL + '/leeches/lesson', {
           timeout: 0,
           headers: {
             'Authorization': `Bearer ${apiKey}`
           }
         })
-        .then(renderButton)
-        .catch(function(error) {
-          console.log("Failed to retrieve lessons")
-          console.log(error)
-          renderError(error)
-        })
-    }).catch(function(error) {
-      console.log("Failed to get API key");
-    });
+          .then(renderButton)
+          .catch(function(error) {
+            console.log("Failed to retrieve lessons")
+            console.log(error)
+            renderError(error)
+          })
+      }).catch(function(error) {
+        console.log("Failed to get API key");
+      });
   }
 
   function startQuiz(e) {
@@ -642,7 +642,7 @@ class Quiz {
     $('#leech_quiz_abort').css('z-index', 1031);
 
     var trainedLeeches = quiz.trained();
-    
+
     var trained = trainedLeeches.reduce(function(acc, leech) {
       if (leech.is_similar) {
         acc.similars.push(leech)
@@ -650,12 +650,12 @@ class Quiz {
         acc.leeches.push(leech)
       }
       return acc
-    }, { leeches: [], similars: []})
+    }, { leeches: [], similars: [] })
 
     var msg = trained.leeches.length === 0
       ? "Sorry. No leeches trained."
       : trained.leeches.length + " leech" + (trained.leeches.length > 1 ? "es" : "") + " trained!";
-    
+
     if (quiz.similars().length > 0 && trained.leeches.length > 0) {
       msg = msg.slice(0, msg.length - 1)
       msg += ", and spotted " + trained.similars.length + " similar item" + ((trained.similars.length > 1 || trained.similars.length == 0) ? "s" : "") + "!"
@@ -663,7 +663,7 @@ class Quiz {
 
     $('#leech_quiz').find('.help').html(msg).attr('lang', 'en').show();
 
-    getAPIKey().then(function (apiKey) {
+    getAPIKey().then(function(apiKey) {
       ajaxRetry(config.BASE_URL + '/leeches/trained', {
         data: JSON.stringify({ trained: trained.leeches }),
         method: 'POST',
@@ -671,11 +671,11 @@ class Quiz {
         headers: {
           'Authorization': `Bearer ${apiKey}`
         }
-      }).catch(function (e) {
+      }).catch(function(e) {
         console.error("Failed to submit trained leeches")
         console.error(e)
-      }).finally(function () {
-        setTimeout(function () {
+      }).finally(function() {
+        setTimeout(function() {
           closeQuiz();
         }, 2000)
       });
@@ -689,7 +689,7 @@ class Quiz {
     }
 
     var item = quiz.currentQuestion();
-    
+
     if (item.isSimilar) {
       console.log("This is a red herring similar one")
     }
@@ -730,7 +730,7 @@ class Quiz {
     //console.log(url, retries, timeout);
     options = options || {};
     var retries = options.retries || 3;
-    var timeout = options.timeout || 3000;
+    var timeout = options.timeout || 6000;
     var headers = options.headers || {};
     var method = options.method || 'GET';
     var data = options.data || undefined;
@@ -745,7 +745,7 @@ class Quiz {
         data: data,
         cache: cache
       })
-        .done(function (data, status) {
+        .done(function(data, status) {
           if (status === 'success' || status === 'nocontent') {
             resolve(data);
           } else {
@@ -753,11 +753,11 @@ class Quiz {
             reject(data);
           }
         })
-        .fail(function (xhr, status, error) {
+        .fail(function(xhr, status, error) {
           if ((status === 'error' || status === 'timeout') && --retries > 0) {
             action(resolve, reject);
             return
-          } 
+          }
           debugger
           reject(xhr.responseText);
         });
@@ -766,12 +766,12 @@ class Quiz {
   }
 
   function getAPIKey() {
-    return new Promise(function (resolve, reject) {
+    return new Promise(function(resolve, reject) {
       var apiKey = GM_getValue(KEY_API_KEY);
       if (typeof apiKey === 'string' && apiKey.length == 36) return resolve(apiKey);
 
       // status_div.html('Fetching API key...');
-      ajaxRetry('/settings/personal_access_tokens').then(function (page) {
+      ajaxRetry('/settings/personal_access_tokens').then(function(page) {
 
         // --[ SUCCESS ]----------------------
         // Make sure what we got is a web page.
@@ -789,7 +789,7 @@ class Quiz {
         GM_setValue(KEY_API_KEY, possibleApiKey);
         resolve(possibleApiKey);
 
-      }, function (result) {
+      }, function(result) {
         // --[ FAIL ]-------------------------
         reject(new Error('Failed to fetch API key!'));
       });
