@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Shin WaniKani Leech Trainer
+// @name         Local Shin WaniKani Leech Trainer
 // @namespace    http://tampermonkey.net/
-// @version      3.4.3
+// @version      3.5.0
 // @description  Study and quiz yourself on your leeches!
 // @author       Ross Hendry (rhendry@gmail.com)
 // @match        https://www.wanikani.com/
@@ -15,10 +15,9 @@
 // @homepage     https://greasyfork.org/en/scripts/372086-shin-wanikani-leech-trainer
 // @include      *preview.wanikani.com*
 // @run-at       document-end
-// @require      https://unpkg.com/wanakana@4.0.2/umd/wanakana.min.js
+// @require      https://unpkg.com/wanakana@5.0.2/wanakana.min.js
 // ==/UserScript==
 
-// src/appstore.js
 function appStore() {
   // Hook into App Store
   (function appStore() {
@@ -32,7 +31,6 @@ function appStore() {
   })();
 }
 
-// src/config.js
 // It's crap to include test code in production, but it's a workaround
 // for now to stop me pushing out stuff pointing to localhost.
 const { name } = GM_info.script
@@ -50,7 +48,6 @@ const config = {
   config
 }
 
-// src/shake.js
 function shake(elem) {
   var dist = '25px';
   var speed = 75;
@@ -64,7 +61,6 @@ function shake(elem) {
 
 { shake }
 
-// src/util/jarowinkler.js
 // Jaro-Winkler Distance
 function jw_distance(a, c) {
   var h, b, d, k, e, g, f, l, n, m, p;
@@ -112,7 +108,6 @@ function jw_distance(a, c) {
 
 { jw_distance }
 
-// src/lib/quiz/Question.js
 const CORRECT = 'correct'
 const INCORRECT = 'incorrect'
 const TRY_AGAIN = 'try_again'
@@ -161,22 +156,6 @@ class Question {
 
 { Question }
 
-// src/util/shuffle.js
-function shuffle(array) {
-  var i = array.length, j, temp;
-  if (i === 0) return array;
-  while (--i) {
-    j = Math.floor(Math.random() * (i + 1));
-    temp = array[i]; array[i] = array[j]; array[j] = temp;
-  }
-  return array;
-}
-
-{
-  shuffle
-}
-
-// src/lib/quiz/Quiz.js
 class Quiz {
   constructor(leechItems) {
     this.lessons = leechItems.filter(l => l.name !== undefined && l.name.length > 0)
@@ -186,46 +165,55 @@ class Quiz {
     this.nthQuestion = 0
   }
 
-  makeQuestions(lessons) {
+  makeQuestions(lessons, repetitions = 3) {
     if (!lessons || lessons.length == 0) {
       throw new Error("Cannot make a quiz with no questions")
     }
-    let questions = lessons.map(function (lesson) {
+    let questions = lessons.map(function(lesson) {
       if (!lesson.is_similar) {
         return new Question(lesson)
       }
     }).filter(Boolean)
-    
-    let similars = lessons.map(function (lesson) {
+
+    let similars = lessons.map(function(lesson) {
       if (lesson.is_similar) {
         return new Question(lesson)
       }
     }).filter(Boolean)
 
-    questions = [...questions, ...questions, ...questions, ...similars]
+    var i, temp, n = repetitions;
+    var questionSets = [];
 
-    for (let i = 0; i < 3; i++) {
-      shuffle(questions);
-      let previousKey = null;
-      let duplicate = false;
-      questions.forEach(function (leech) {
-        var key = leech.type + "/" + leech.name;
-        leech.key = key
-        if (key === previousKey) {
-          duplicate = true;
-        }
-        previousKey = key;
-      });
-      if (!duplicate) break;
+    // Make up n batches of the questions
+    for (i = 0; i < n; i++) {
+      questionSets.push([...questions]);
     }
 
-    return questions
+    for (i = 0; i < similars.length; i++) {
+      var j = Math.floor(Math.random() * n);
+      questionSets[j].push(similars[i]);
+    }
+
+    var previousKey = undefined;
+    for (i = 0; i < n; i++) {
+      var set = shuffle(questionSets[i]);
+
+      if (set[0].key === previousKey) {
+        temp = set[0]; 
+        set[0] = set[set.length - 1]; 
+        set[set.length - 1] = temp;
+      }
+
+      previousKey = set[set.length - 1].key;
+    }
+
+    return [].concat.apply([], questionSets);
   }
 
   items() {
     return this.lessons.length
   }
-  
+
   similars() {
     return this.lessons.filter(function(lesson) {
       return lesson.is_similar
@@ -279,27 +267,36 @@ class Quiz {
   trained() {
     const trained = []
     const self = this
-    this.correctAnswers.forEach(function (leech) {
-      if (!trained.find(function (l) { return l.key == leech.key; })
-        && !self.incorrectAnswers.find(function (l) { return l.key == leech.key; })
+    this.correctAnswers.forEach(function(leech) {
+      if (!trained.find(function(l) { return l.key == leech.key; })
+        && !self.incorrectAnswers.find(function(l) { return l.key == leech.key; })
       ) {
         trained.push(leech);
       }
     });
 
-    return trained.map(function (l) {
+    return trained.map(function(l) {
       return l.originalLeech
     })
   }
 }
 
+function shuffle(array) {
+  var i = array.length, j, temp;
+  if (i === 0) return array;
+  while (--i) {
+    j = Math.floor(Math.random() * (i + 1));
+    temp = array[i]; array[i] = array[j]; array[j] = temp;
+  }
+  return array;
+}
+
 { Quiz, CORRECT, INCORRECT, TRY_AGAIN }
 
-// src/index.js
 (function() {
   'use strict';
 
-  const { KEY_API_KEY } = config
+  const { KEY_API_KEY } = config;
 
   const quizHtml = `
     <div id="leech_quiz" class="kanji reading">
@@ -556,7 +553,7 @@ class Quiz {
             console.log(error)
             renderError(error)
           })
-      }).catch(function(error) {
+      }).catch(function() {
         console.log("Failed to get API key");
       });
   }
@@ -753,7 +750,7 @@ class Quiz {
             reject(data);
           }
         })
-        .fail(function(xhr, status, error) {
+        .fail(function(xhr, status) {
           if ((status === 'error' || status === 'timeout') && --retries > 0) {
             action(resolve, reject);
             return
@@ -789,7 +786,7 @@ class Quiz {
         GM_setValue(KEY_API_KEY, possibleApiKey);
         resolve(possibleApiKey);
 
-      }, function(result) {
+      }, function() {
         // --[ FAIL ]-------------------------
         reject(new Error('Failed to fetch API key!'));
       });
@@ -797,12 +794,10 @@ class Quiz {
   }
 })();
 
-// CSS injection
 (function(){
   const $style = document.createElement('style');
 
-  $style.innerHTML = `/* src/styles.css */
-#leech_quiz [lang="ja"] {
+  $style.innerHTML = `#leech_quiz [lang="ja"] {
   font-family: "Meiryo", "Yu Gothic", "Hiragino Kaku Gothic Pro", "TakaoPGothic",
     "Yu Gothic", "ヒラギノ角ゴ Pro W3", "メイリオ", "Osaka", "MS PGothic",
     "ＭＳ Ｐゴシック", sans-serif;
