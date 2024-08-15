@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Shin WaniKani Leech Trainer
 // @namespace    http://tampermonkey.net/
-// @version      3.5.1
+// @version      3.6.1
 // @description  Study and quiz yourself on your leeches!
 // @author       Ross Hendry (rhendry@gmail.com)
 // @match        https://www.wanikani.com/
@@ -16,6 +16,7 @@
 // @include      *preview.wanikani.com*
 // @run-at       document-end
 // @require      https://unpkg.com/wanakana@5.0.2/wanakana.min.js
+// @require      https://unpkg.com/jquery@3.7.1/dist/jquery.min.js
 // ==/UserScript==
 
 function appStore() {
@@ -494,20 +495,22 @@ function shuffle(array) {
     }
     $('.sitemap__section__leeches').remove();
     var leechButton = `
-      <li class="sitemap__section sitemap__section__leeches">
-        <h2 class="sitemap__section-header sitemap__section-header--leeches" data-navigation-section-toggle="" data-expanded="false" role="button">
+      <li class="sitemap__section sitemap__section__leeches" data-controller="expandable-navigation" data-expandable-navigation-open-class="sitemap__section--open">
+        <button class="sitemap__section-header sitemap__section-header--leeches" data-action="expandable-navigation#toggle" data-expandable-navigation-target="toggle" aria-expanded="true" type="button" aria-controls="sitemap__leeche" tabindex="0">
           <span lang="ja">蛭達</span>
           <span lang="en">Leeches</span>
-        </h2>
-        <div class="sitemap__expandable-chunk sitemap__expandable-chunk--leeches" data-navigation-section-content="" data-expanded="false" aria-expanded="false">
-          <ul class="sitemap__pages sitemap__pages--leeches">
-            <li class="sitemap__page sitemap__page--leech">
-              You have <span class="leech-count">${json.stats.leech_count}</span> leeches
-            </li>
-            <li class="sitemap__page sitemap__page--leech">
-              <button style="width: 100%;" class="leeches-start-quiz">Squash some leeches!</button>
-            </li>
-          </ul>
+        </button>
+        <div id="sitemap__leeches" data-expandable-navigation-target="expandableChunk" class="sitemap__expandable-chunk sitemap__expandable-chunk--leeches" style="--chunk-height: 318px;">
+          <div data-expandable-navigation-target="expandableChunkContent">
+            <ul class="sitemap__pages sitemap__pages--leeches">
+              <li class="sitemap__page sitemap__page--leech">
+                You have <span class="leech-count">${json.stats.leech_count}</span> leeches
+              </li>
+              <li class="sitemap__page sitemap__page--leech">
+                <button style="width: 100%;" class="leeches-start-quiz">Squash some leeches!</button>
+              </li>
+            </ul>
+          </div>
         </div>
       </li>`
 
@@ -531,9 +534,9 @@ function shuffle(array) {
 
     if (json.lessons.length > 0) {
       quiz = new Quiz(json.lessons);
-      $('.navigation .sitemap__section__leeches button').click(startQuiz);
+      $('.navigation .sitemap__section__leeches button.leeches-start-quiz').click(startQuiz);
     } else {
-      $('.navigation .sitemap__section__leeches button').remove()
+      $('.navigation .sitemap__section__leeches button.leeches-start-quiz').remove()
     }
   }
 
